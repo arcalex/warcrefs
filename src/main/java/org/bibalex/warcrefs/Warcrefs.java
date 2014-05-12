@@ -42,6 +42,23 @@ public class Warcrefs {
 
   public static void main(String[] args) {
 
+    // The BufferedReader provides a readLine() method.
+    BufferedReader digestsReader = new BufferedReader(new InputStreamReader(new FileInputStream(args[0])));
+
+    // Each line will be split into fields.
+    String[] digestLine;
+    
+    // While there are more files in directories.
+    while (1) {
+      digestLine = digestsReader.readLine().split(" ");
+
+      System.out.println(digestLine[1]);
+      
+      
+    }
+
+    /*
+
     /*
      * The rest of this class is more like pseudocode that will not
      * compile.
@@ -61,6 +78,8 @@ public class Warcrefs {
           ww.writeRecord();
         }
     }
+
+    */
 
     System.exit(0);
   }

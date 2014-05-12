@@ -54,7 +54,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>org.bibalex.warcrefs.WarcRefs</mainClass>
+              <mainClass>org.bibalex.warcrefs.Warcrefs</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>

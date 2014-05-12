@@ -24,66 +24,50 @@ import org.jwat.warc.WarcWriterFactory;
 import org.jwat.warc.WarcWriterUncompressed;
 
 public class Warcrefs {
-  /*
-   * This is the digest index, which looks like this:
-   *
-   * fn off len uri date digest digestExt copy referstoUri referstoDate
-   */
-  private LineNumberInputStream digests;
-
-  /*
-   * This is the input file (duplicated) and the output
-   * file(deduplicated).
-   */
-  private FileInputStream dup;
-  private FileOutputStream dedup;
 
   private int curentRecordOff;
 
   public static void main(String[] args) {
+    try {
+      // The BufferedReader provides a readLine() method.
+      BufferedReader digestsReader = new BufferedReader(new InputStreamReader(new FileInputStream(args[0])));
 
-    // The BufferedReader provides a readLine() method.
-    BufferedReader digestsReader = new BufferedReader(new InputStreamReader(new FileInputStream(args[0])));
-
-    // Each line will be split into fields.
-    String[] digestLine;
+      /*
+       * Each line will be split into fields, where 'h' is the digest
+       * (hash), and 'hx' is the digest extension (and other shorthands
+       * are obvious):
+       *
+       * fn off len uri date h hx copy refsuri refsdate
+       *  0   1   2   3    4 5  6    7       8        9
+       */
+      String[] digestLine;
     
-    // While there are more files in directories.
-    while (1) {
-      digestLine = digestsReader.readLine().split(" ");
+      // While there are more files in directories.
+      while (true) {
+        digestLine = digestsReader.readLine().split(" ");
 
-      System.out.println(digestLine[1]);
-      
-      
+
+        //IF OFF AND LEN EQUAL CURRENT FN AND LEN
+
+        //IF COPY 1
+
+        //  fis.read
+        //    (b, 0, len);
+        //  fos.write
+        //    (b, 0, len);
+
+        //  currentRecordOff += len;
+
+        //IF COPY 2
+
+        //  READ NEXT RECOD USING JWAT AND WRITE REVISIT RECORD.
+
+
+        // TODO: Implement this loop and remove the break.
+        break;
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
     }
-
-    /*
-
-    /*
-     * The rest of this class is more like pseudocode that will not
-     * compile.
-     */
-
-    currentRecordOff = 0;
-
-    while(getNextDigest()) {
-      if(fn == fn && off == off) {
-        if(copy == 1) {
-          dup.read(b, 0, len);
-          dedup.write(b, 0, len);
-          currentRecordOff += len;
-        } else {
-          wr.getNextRecord();
-          makeRevisitRecord();
-          ww.writeRecord();
-        }
-    }
-
-    */
-
-    System.exit(0);
-  }
-
-  private getNextDigest() {
   }
 }

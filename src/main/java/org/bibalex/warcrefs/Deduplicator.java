@@ -4,6 +4,7 @@
 
 package org.bibalex.warcrefs;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -12,173 +13,256 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
+import org.jwat.common.HeaderLine;
+import org.jwat.common.HttpHeader;
+import org.jwat.warc.WarcReader;
+import org.jwat.warc.WarcReaderCompressed;
+import org.jwat.warc.WarcRecord;
+import org.jwat.warc.WarcWriter;
+import org.jwat.warc.WarcWriterCompressed;
+import org.jwat.warc.WarcWriterUncompressed;
+import org.jwat.warc.WarcWriterFactory;
 
 public class Deduplicator 
 {
-    private List<String> warcFiles = new ArrayList<String>();
-    private List<String> warcRecords = new ArrayList<String>();
-    private RandomAccessFile digests;
-    private int bufferSize = 8129;       // default length (8k) that will be copied (written) to dedup_warc 
+    private List<String> warcFiles = new ArrayList();
+    private List<String> warcRecords = new ArrayList();
+    private RandomAccessFile digests;       
+    // Default length (8k) that will be copied (written) to dedup_warc
+    private int bufferSize = 8129;
     
-    public Deduplicator()
-    {
-        
-    }
+    public Deduplicator() { }
     
-    public Deduplicator(int size)
+    public Deduplicator( int size )
     {
         bufferSize = size;
     }
     
-    public void deduplicate(String digestsPath, String rootDirPath) throws FileNotFoundException, IOException
+    public void deduplicate( String digestsPath, String rootDirPath )
+            throws FileNotFoundException, IOException
     {
         // Initialization phase
-        digests = new RandomAccessFile(digestsPath, "r");          
-        File rootDir = new File (rootDirPath);                     
+        digests = new RandomAccessFile( digestsPath, "r" );          
+        File rootDir = new File( rootDirPath );                     
         
         // Processing phase
-        getAllWarcsRecursively(rootDir);
+        findAllWarcsRecursively( rootDir );
         
-        int count = 0;
-        for (String warc : warcFiles)
-        {
-            // Please remove this condition after finishing writeWarcDedup implementation 
-            if (count == 2)
-                break;
-            
-            writeWarcDedup(warc);
-            count ++;
+        for ( String warc : warcFiles )
+        {   
+            writeWarcDedup( warc );
+            printWarcRecords( warcRecords );
         }
         
         // Terminating phase
-        printWarcs(warcFiles);
-        //printWarcRecords(warcRecords);
-
+        printWarcs( warcFiles );
     }
     
-    private void writeWarcDedup(String warcAbsolutePath) throws IOException
+    private void writeWarcDedup( String warcAbsolutePath ) throws IOException
     {
-        String warcBasename = warcAbsolutePath.substring(warcAbsolutePath.lastIndexOf("/") + 1);
-        String warcDirectory = warcAbsolutePath.substring(0, warcAbsolutePath.lastIndexOf("/") + 1);
+        String warcBasename = warcAbsolutePath.substring(
+                warcAbsolutePath.lastIndexOf( "/" ) + 1 );
         
-        getWarcRecordsFromDigests(warcBasename);
+        String warcDirectory = warcAbsolutePath.substring( 
+                0, warcAbsolutePath.lastIndexOf( "/" ) + 1 );
         
-        if (warcRecords.size() != 0)
+        findWarcRecordsFromDigests( warcBasename );
+        
+        if ( !warcRecords.isEmpty() )
         {
-            String warcDedupAbsolutePath = warcDirectory + warcBasename.substring(0, warcBasename.length() - 8) + "_dedup.warc.gz";
-            
-            File warcFile = null;
-            FileInputStream warcInputStream = null;
-            FileOutputStream warcOutputStream = null;
+            String warcDedupAbsolutePath = warcDirectory + 
+                    warcBasename.substring( 0, warcBasename.length() - 8 ) +
+                    "_dedup.warc.gz";
             
             try
             {
-                warcInputStream = new FileInputStream(warcAbsolutePath);
-                warcFile = new File(warcDedupAbsolutePath);
-                warcOutputStream = new FileOutputStream(warcFile);
+                // Used in copyWarcBytes for copying bytes only
+                FileInputStream warcInputStream = 
+                        new FileInputStream( warcAbsolutePath );
+                // Used in writeRevisitRecord for writing revisit record only
+                /*FileInputStream warcRevisitInputStream = 
+                        new FileInputStream( warcAbsolutePath );
+                */
+                
+                FileOutputStream warcOutputStream = new FileOutputStream( 
+                        warcDedupAbsolutePath );
+                
+                // Delete the following line after testing
+                FileOutputStream warcOutputStream2 = new FileOutputStream( "/home/msm/warcrefs/warc.gz" ); // "/home/msm/warcrefs/warc.warc.gz"
 
                 int preOffset = 0;
                 int preLength = 0;
                 int offset = 0;
                 int length = 0;
                 
-                for(String record: warcRecords)
+                for( String record: warcRecords )
                 {
-                    String[] digestLine = record.split(" ");
-                    int copyNumber = Integer.parseInt(digestLine[7]);
+                    String[] digestLine = record.split( " " );
+                    int copyNumber = Integer.parseInt( digestLine[ 7 ] );
                     
-                    if (copyNumber > 1)
+                    if ( copyNumber > 1 )
                     {
-                        offset = Integer.parseInt(digestLine[1]);
-                        length = Integer.parseInt(digestLine[2]);
+                        offset = Integer.parseInt( digestLine[ 1 ] );
+                        length = Integer.parseInt( digestLine[ 2 ] );
                         
-                        // Check whether there are bytes between current response record and previous one.
-                        // If so, we have to copy them as they are to the new dedup_warc
+                        /* Check whether there are bytes between current
+                         *  response record and previous one. If so, we have to
+                         *  copy them as they are to the new dedup_warc
+                        */
                         int skippedBytesOffset = preLength + preOffset;
                         int skippedBytesLength = offset - skippedBytesOffset;
                         
-                        if (skippedBytesLength > 0)
+                        if ( skippedBytesLength > 0 )
                         {
-                            // There are bytes in original warc should be copied to the new one first,
-                            // then add revisit record by using JWAT or any other tools
-                            copyWarcBytes(warcInputStream, warcOutputStream, skippedBytesLength);
+                            /* There are bytes in original warc should be
+                             *  copied to the new one first, then add revisit
+                             *  record by using JWAT or any other tools
+                            */
+                            copyWarcBytes( warcInputStream, warcOutputStream,
+                                    skippedBytesLength );
                         }
                         
-                        // TODO: Add revisit record by calling addRevisitRecord method (should be implemented)
-                        String refersToUri = digestLine[8];
-                        String refersToDate = digestLine[9];
-                        writeRevisitRecord(warcInputStream, warcOutputStream, length, refersToUri, refersToDate);
+                        /* TODO: Add revisit record by calling
+                         *  writeRevisitRecord method (should be implemented)
+                        */
+                        String refersToUri = digestLine[ 8 ];
+                        String refersToDate = digestLine[ 9 ];
+                        
+                        // The following method is working gracefully if revisit
+                        // records has been written into another file as shown
+                        // below.
+                        // TODO: should fix it by passing warcOutputStream instead of outputStream2
+                        writeRevisitRecord( 
+                                warcInputStream, warcOutputStream2,
+                                offset, refersToUri, refersToDate );
+                        
+                        /* Skip revisit record length to read the next record
+                           correctly
+                        */
+                        warcInputStream.skip( length );
                         
                         preOffset = offset;
                         preLength = length;
                     }
                 }
                 
-                // Before closing the new warc, we have to check whether last record read from digests reaches to the end of original warc
-                // If not, we have to copy these bytes by calling copyWarcBytes
+                /*
+                 * Before closing the new warc, we have to check whether last
+                 * record read from digests reaches to the end of original warc.
+                 * 
+                 * If not, we have to copy these bytes by calling copyWarcBytes.
+                */
                 long lengthRead = offset + length;
                 long warcSize = new File(warcAbsolutePath).length();
                 long lastRecordLength = warcSize - lengthRead;
                 
                 if (lastRecordLength > 0)
-                    copyWarcBytes(warcInputStream, warcOutputStream, (int) lastRecordLength);
+                    copyWarcBytes( warcInputStream, warcOutputStream,
+                            ( int ) lastRecordLength );
                 
+                // Release resources for garbage collection
                 warcInputStream.close();
-                warcOutputStream.flush();
+                //warcRevisitInputStream.close();
                 warcOutputStream.close();
+                
+                // Delete the following line after testing
+                warcOutputStream2.close();
             }
-            catch(Exception e)
+            catch ( Exception e )
             {
-                System.out.println(e);
+                System.err.println( e.getMessage() );
             }
         }
     }
     
-    private void writeRevisitRecord(FileInputStream fis, FileOutputStream fos, int length, String refersToUri, String refersToDate) throws IOException
-    {
-        // Line below is just to continue reading from the right offset by skipping record which has copyNumber = 2.
-        fis.skip(length);
+    private void writeRevisitRecord( FileInputStream fis, FileOutputStream fos,
+            int offset, String refersToUri, String refersToDate )
+            throws IOException
+    {    
+        WarcReader wrc = new WarcReaderCompressed();
+        
+        // TODO: should not create a new FileInputStream object when invoking writeRevisitRecord method
+        fis = new FileInputStream( "/home/msm/warcrefs/JAN25_00336-20110731050545553-00076-14438~ia714237.archive.bibalex.org~8443.warc.gz" );
+        fis.skip( offset );
+        WarcRecord record = wrc.getNextRecordFrom( fis, offset );
+        
+        /* Create a new warc record and write it into output warc file.
+           Don't modify existing warc record. This will not work!
+        */
+        
+        // http header
+        HttpHeader httpHeader = record.getHttpHeader();
+        String httpHeaderStr = String.format( "%s %d %s\n",
+                httpHeader.httpVersion, httpHeader.statusCode,
+                httpHeader.reasonPhrase);
+
+        for ( HeaderLine hl : httpHeader.getHeaderList() )
+            httpHeaderStr += String.format( "%s: %s\n", hl.name, hl.value );
+        
+        // warc header
+        WarcWriter ww = WarcWriterFactory.getWriter( fos, false );
+        WarcRecord warcHeader = WarcRecord.createRecord( ww );
+        
+        warcHeader.header.warcTypeStr = "revisit";
+        warcHeader.header.warcTargetUriStr = record.header.warcTargetUriStr;
+        warcHeader.header.warcDate = record.header.warcDate;
+        warcHeader.header.warcPayloadDigest = record.header.warcPayloadDigest;
+        warcHeader.header.warcIpAddress = record.header.warcIpAddress;
+        warcHeader.header.warcProfileStr
+                = "http://netpreserve.org/warc/1.0/revisit/identical-payload-digest";
+        warcHeader.header.warcRefersToTargetUriStr = refersToUri;
+        warcHeader.header.warcRefersToDateStr = refersToDate;
+        warcHeader.header.warcRecordIdUri = record.header.warcRecordIdUri;
+        warcHeader.header.contentType = record.header.contentType;
+        warcHeader.header.contentLength = ( long ) httpHeaderStr.length();
+        
+        // Write warc header and http header
+        ww.writeHeader( warcHeader );
+        ww.writePayload( httpHeaderStr.getBytes() );
+        
+        ww.closeRecord();
     }
     
-    private void copyWarcBytes(FileInputStream fis, FileOutputStream fos, int length) throws IOException
+    private void copyWarcBytes( FileInputStream fis, FileOutputStream fos,
+            int length) throws IOException
     {
-        while (length > bufferSize)
+        while ( length > bufferSize )
         {
-            byte[] data = new byte [bufferSize];
+            byte[] data = new byte [ bufferSize ];
             
-            fis.read(data, 0, bufferSize);
-            fos.write(data, 0, bufferSize);
+            fis.read( data, 0, bufferSize );
+            fos.write( data, 0, bufferSize );
             
             length = length - bufferSize;
         }
         
-        byte[] data = new byte [length];    
-        fis.read(data, 0, length);
-        fos.write(data, 0, length);
-        
+        byte[] data = new byte [ length ];    
+        int len = fis.read( data, 0, length );
+        fos.write( data, 0, len );
     }
     
-    private void getWarcRecordsFromDigests(String key) throws IOException
+    // Using binary search to search for a specific warc record in digests file
+    private void findWarcRecordsFromDigests( String key ) throws IOException
     {
         int blockSize = 8129;
         long fileSize = digests.length();
         long min = 0;
-        long max = (long) fileSize / blockSize;
+        long max = ( long ) fileSize / blockSize;
         long mid;
         String line;
     
         // find the right block
-        while (max - min > 1) 
+        while ( max - min > 1 ) 
         {
-            mid = min + (long)((max - min) / 2);
-            digests.seek(mid * blockSize);
+            mid = min + ( long ) ( ( max - min ) / 2 );
+            digests.seek( mid * blockSize );
             
-            if(mid > 0)
-                line = digests.readLine(); // probably a partial line
+            if( mid > 0 )
+                line = digests.readLine();      // probably a partial line
             
             line = digests.readLine();
             
-            if (key.compareTo(line) > 0)
+            if ( key.compareTo( line ) > 0 )
                 min = mid;
             else
                 max = mid;
@@ -186,54 +270,49 @@ public class Deduplicator
         
         // find the right line
         min = min * blockSize;
-        digests.seek(min);
+        digests.seek( min );
         
-        if(min > 0) 
+        if( min > 0 ) 
             line = digests.readLine();
         
         warcRecords.clear();
         
-        while (true) 
+        while ( true ) 
         {
             min = digests.getFilePointer();
             line = digests.readLine();
             
-            if (line == null)
+            if ( line == null )
                 break;
             
-            String digestLine[] = line.split(" ");
-            String warcName = digestLine[0];
+            String digestLine[] = line.split( " " );
+            String warcName = digestLine[ 0 ];
             
-            if (warcName.compareTo(key) == 0)
-                warcRecords.add(line);
-            else if (warcName.compareTo(key) > 0)
+            if ( warcName.compareTo( key ) == 0 )
+                warcRecords.add( line );
+            else
                 break;
         }
     }
     
     // Search for warc files recursively
-    private void getAllWarcsRecursively (File dir)
+    private void findAllWarcsRecursively( File dir )
     {
-        // Check whether it is a directory
-        if(dir.isDirectory())
+        // Check whether it is a directory and not hidden
+        if ( dir.isDirectory() && !dir.isHidden() )
         {
             // Check whether I have permission to read this directory
-            if(dir.canRead())
+            if( dir.canRead() )
             {
-                // Processing
-                for (File temp : dir.listFiles()) 
+                for ( File temp : dir.listFiles() ) 
                 {
-                    if(temp.isFile())
+                    if( temp.isFile() )
                     {
-                        // Base case
-                        if(temp.getName().endsWith(".warc.gz"))
-                            warcFiles.add(temp.getAbsolutePath());
+                        if( temp.getName().endsWith( ".warc.gz" ) )
+                            warcFiles.add( temp.getAbsolutePath() );
                     }
-                    else if (temp.isDirectory())
-                    {
-                        // Recursive call
-                        getAllWarcsRecursively(temp);
-                    }
+                    else if ( temp.isDirectory() )
+                        findAllWarcsRecursively( temp );
                 }
             }
             else
@@ -244,43 +323,43 @@ public class Deduplicator
     }
     
     // Printing part (Used for testing purposes only)
-    private void printWarcs (List<String> warcs)
+    private void printWarcs( List<String> warcs )
     {
-        int count = warcs.size();
-        
-        if(count != 0)
+        if( warcs.size() != 0 )
         {
-            System.out.printf("\n# of warcs: %d\n", count);
+            System.out.printf( "\n# of warcs: %d\n", warcs.size() );
             
-            for(String warc: warcs)
-                System.out.printf("%s\n", warc);
+            for( String warc: warcs )
+                System.out.printf( "%s\n", warc );
         }
         else
-            System.out.println("\nNo warcs found!");
+            System.out.println( "\nNo warcs found!" );
     }
     
-    private void printWarcRecords (List<String> warcRecords)
+    private void printWarcRecords( List<String> warcRecords )
     {
-        int count = warcRecords.size();
-        
-        if(count != 0)
+        if( warcRecords.size() != 0 )
         {
-            System.out.printf("\n# of warc records in digests: %d\n", count);
+            System.out.printf( "\n# of warc records in digests: %d\n",
+                    warcRecords.size() );
             
-            for(String record: warcRecords)
-                System.out.printf("%s\n", record);
+            for( String record: warcRecords )
+                System.out.printf( "%s\n", record );
         }
         else
-            System.out.println("\nNo warc records found in digests!");
+            System.out.println( "\nNo warc records found in digests!" );
     }
     
     // Setters and getters
-    public void setBufferSize (int size)
+    public void setBufferSize( int size )
     {
-        bufferSize = size;
+        if ( size > 0 )
+            bufferSize = size;
+        else
+            throw new IllegalArgumentException( "Buffer size should be > 0" );
     }
     
-    public int getBufferSize ()
+    public int getBufferSize()
     {
         return bufferSize;
     }

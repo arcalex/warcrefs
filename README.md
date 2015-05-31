@@ -1,5 +1,5 @@
 # warcrefs
-Web archive deduplication tools for identifying duplicates and converting them to references in a web archive collection after crawl time. Warcrefs is implemented in JAVA.
+Web archive deduplication tools for identifying duplicates and converting them to references in a web archive collection after crawl time. warcrefs is implemented in JAVA.
 
 The warcrefs tool takes as input a list of WARC files but also now has access to post-processed hash manifest lines for records in the files it is to operate on.
 warcrefs iterates through each WARC file in the input and also concurrently through corresponding lines in the post-processed hash manifest.

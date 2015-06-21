@@ -88,7 +88,7 @@ public class Deduplicator
                         warcDedupAbsolutePath );
                 
                 // Delete the following line after testing
-                FileOutputStream warcOutputStream2 = new FileOutputStream( "/home/msm/warcrefs/warc.gz" ); // "/home/msm/warcrefs/warc.warc.gz"
+                //FileOutputStream warcOutputStream2 = new FileOutputStream( "/home/msm/warcrefs/warc.gz" ); // "/home/msm/warcrefs/warc.warc.gz"
 
                 int preOffset = 0;
                 int preLength = 0;
@@ -133,7 +133,7 @@ public class Deduplicator
                         // below.
                         // TODO: should fix it by passing warcOutputStream instead of outputStream2
                         writeRevisitRecord( 
-                                warcInputStream, warcOutputStream2,
+                                warcInputStream, warcOutputStream,
                                 offset, refersToUri, refersToDate );
                         
                         /* Skip revisit record length to read the next record
@@ -166,7 +166,7 @@ public class Deduplicator
                 warcOutputStream.close();
                 
                 // Delete the following line after testing
-                warcOutputStream2.close();
+                //warcOutputStream2.close();
             }
             catch ( Exception e )
             {

@@ -200,7 +200,7 @@ public class Deduplicator
             httpHeaderStr += String.format( "%s: %s\n", hl.name, hl.value );
         
         // warc header
-        WarcWriter ww = WarcWriterFactory.getWriter( fos, false );
+        WarcWriter ww = WarcWriterFactory.getWriter( fos, true );
         WarcRecord warcHeader = WarcRecord.createRecord( ww );
         
         warcHeader.header.warcTypeStr = "revisit";

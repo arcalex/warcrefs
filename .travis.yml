@@ -1,0 +1,9 @@
+language: java
+
+jdk:
+    - oraclejdk8
+    
+# whitelist in the master branch only
+branches:
+    only:
+        - master

@@ -1,4 +1,7 @@
 # warcrefs
+
+[![Build Status](https://travis-ci.org/arcalex/warcrefs.svg?branch=master)](https://travis-ci.org/arcalex/warcrefs)
+
 Web archive deduplication tools for identifying duplicates and converting them to references in a web archive collection after crawl time. warcrefs is implemented in JAVA.
 
 The warcrefs tool takes as input a list of WARC files but also now has access to post-processed hash manifest lines for records in the files it is to operate on.

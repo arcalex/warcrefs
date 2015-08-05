@@ -11,9 +11,9 @@ public class Warcrefs
 {
     public static void main( String[] args ) throws IOException
     {
-        int bufferSize = 8129;                               // args[0]
-        String digestsPath = "/home/msm/warcrefs/digests";   // args[1]
-        String rootDirPath = "/home/msm/warcrefs";           // args[2]
+        int bufferSize = Integer.parseInt( args[ 0 ] ); // 8129
+        String digestsPath = args[ 1 ];                 // path to digests file
+        String rootDirPath = args[ 2 ];                 // warcs directory
         
         try
         {

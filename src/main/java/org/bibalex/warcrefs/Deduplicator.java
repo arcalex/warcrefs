@@ -27,15 +27,19 @@ public class Deduplicator
 {
     private List<String> warcFiles = new ArrayList();
     private List<String> warcRecords = new ArrayList();
-    private RandomAccessFile digests;       
-    // Default length (8k) that will be copied (written) to dedup_warc
-    private int bufferSize = 8129;
+    private RandomAccessFile digests;
+    private int bufferSize;
+    private String currentWarc;     // represents absolute path of the current warc which is under processing
     
-    public Deduplicator() { }
+    public Deduplicator() 
+    {
+        // Default length (8k) that will be copied (written) to dedup_warc
+        bufferSize = 8129;
+    }
     
     public Deduplicator( int size )
     {
-        bufferSize = size;
+        setBufferSize( size );
     }
     
     public void deduplicate( String digestsPath, String rootDirPath )
@@ -49,7 +53,8 @@ public class Deduplicator
         findAllWarcsRecursively( rootDir );
         
         for ( String warc : warcFiles )
-        {   
+        {
+            currentWarc = warc;
             writeWarcDedup( warc );
             printWarcRecords( warcRecords );
         }
@@ -87,9 +92,6 @@ public class Deduplicator
                 FileOutputStream warcOutputStream = new FileOutputStream( 
                         warcDedupAbsolutePath );
                 
-                // Delete the following line after testing
-                //FileOutputStream warcOutputStream2 = new FileOutputStream( "/home/msm/warcrefs/warc.gz" ); // "/home/msm/warcrefs/warc.warc.gz"
-
                 int preOffset = 0;
                 int preLength = 0;
                 int offset = 0;
@@ -164,9 +166,6 @@ public class Deduplicator
                 warcInputStream.close();
                 //warcRevisitInputStream.close();
                 warcOutputStream.close();
-                
-                // Delete the following line after testing
-                //warcOutputStream2.close();
             }
             catch ( Exception e )
             {
@@ -182,7 +181,7 @@ public class Deduplicator
         WarcReader wrc = new WarcReaderCompressed();
         
         // TODO: should not create a new FileInputStream object when invoking writeRevisitRecord method
-        fis = new FileInputStream( "/home/msm/warcrefs/JAN25_00336-20110731050545553-00076-14438~ia714237.archive.bibalex.org~8443.warc.gz" );
+        fis = new FileInputStream( currentWarc );
         fis.skip( offset );
         WarcRecord record = wrc.getNextRecordFrom( fis, offset );
         

@@ -193,7 +193,7 @@ public class Deduplicator
     }
     
     private void writeRevisitRecord( FileInputStream fis, FileOutputStream fos,
-            int offset, String refersToUri, String refersToDate )
+            int offset, String refersToUriStr, String refersToDateStr )
             throws IOException
     {    
         WarcReader wrc = new WarcReaderCompressed();
@@ -222,13 +222,13 @@ public class Deduplicator
         
         warcHeader.header.warcTypeStr = "revisit";
         warcHeader.header.warcTargetUriStr = record.header.warcTargetUriStr;
-        warcHeader.header.warcDate = record.header.warcDate;
+        warcHeader.header.warcDateStr = record.header.warcDateStr;
         warcHeader.header.warcPayloadDigest = record.header.warcPayloadDigest;
         warcHeader.header.warcIpAddress = record.header.warcIpAddress;
         warcHeader.header.warcProfileStr
                 = "http://netpreserve.org/warc/1.0/revisit/identical-payload-digest";
-        warcHeader.header.warcRefersToTargetUriStr = refersToUri;
-        warcHeader.header.warcRefersToDateStr = refersToDate;
+        warcHeader.header.warcRefersToTargetUriStr = refersToUriStr;
+        warcHeader.header.warcRefersToDateStr = refersToDateStr;
         warcHeader.header.warcRecordIdUri = record.header.warcRecordIdUri;
         warcHeader.header.contentType = record.header.contentType;
         warcHeader.header.contentLength = ( long ) httpHeaderStr.length();

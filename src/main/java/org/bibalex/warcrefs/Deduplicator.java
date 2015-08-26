@@ -74,11 +74,13 @@ public class Deduplicator
         {
             currentWarc = warc;
             writeWarcDedup( warc );
-            printWarcRecords( warcRecords );
+            
+            // Uncomment the following line only for testing WARC records in digests file
+            //printWarcRecords( warcRecords );  
         }
         
-        // Terminating phase
-        printWarcs( warcFiles );
+        // Uncomment the following line only for listing WARC files under root directory recursively.
+        //printWarcs( warcFiles );
     }
     
     private void writeWarcDedup( String warcAbsolutePath ) throws IOException
@@ -339,10 +341,10 @@ public class Deduplicator
             System.out.println(dir.getAbsolutePath() + " is not a directory");
     }
     
-    // Printing part (Used for testing purposes only)
+    // Printing part (used for testing purposes only)
     private void printWarcs( List<String> warcs )
     {
-        if( warcs.size() != 0 )
+        if( !warcs.isEmpty() )
         {
             System.out.printf( "\n# of warcs: %d\n", warcs.size() );
             
@@ -355,7 +357,7 @@ public class Deduplicator
     
     private void printWarcRecords( List<String> warcRecords )
     {
-        if( warcRecords.size() != 0 )
+        if( !warcRecords.isEmpty() )
         {
             System.out.printf( "\n# of warc records in digests: %d\n",
                     warcRecords.size() );

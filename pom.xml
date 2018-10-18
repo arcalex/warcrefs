@@ -53,8 +53,8 @@
     
     <dependency>
         <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk15on</artifactId>
-        <version>1.8</version>
+        <artifactId>bcprov-jdk15</artifactId>
+        <version>1.45</version>
         <scope>test</scope>
     </dependency>
 
